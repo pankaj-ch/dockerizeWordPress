@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx
+    volumes:
+      - ./conf/nginx :/etc/nginx/templates
+    ports:
+      - 80:80
+    environment:
+      - NGINX_HOST=${HOST}
+      - NGINX_SSL_KEY=
+      - NGINX_PORT=8080
+  
+  wordpress:
+    image: wordpress
+    restart: always
+    ports:
+      - 8080:80
+    depends_on:
+      - db
+    container_name: wordpress
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: user
+      WORDPRESS_DB_PASSWORD: password
+      WORDPRESS_DB_NAME: wordpress    
+    volumes:
+      - ./conf/php :/usr/local/etc/php/
+      - ./wordpress :/var/www/html
+  
+  db:
+    image: mysql
+    restart: always
+    ports:
+      - 3306:3306
+    container_name: mysql
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - ./db/data :/var/lib/mysql
