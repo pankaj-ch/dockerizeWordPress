@@ -1,3 +1,4 @@
+
 ```console
-$ docker compose --env-file ./conf/.env up 
+$ docker compose up 
 ```

@@ -1,45 +1,54 @@
 version: '3.9'
 
 services:
-  wordpress:
-    image: wordpress
-    restart: always
-    ports:
-      - 80:80
-      - 443:443
-    depends_on:
-      - db
-    container_name: wordpress
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: user
-      WORDPRESS_DB_PASSWORD: password
-      WORDPRESS_DB_NAME: wordpress   
-    command: 
-      - /bin/sh
-      - -c
-      - |
-        a2enmod rewrite && a2enmod ssl && a2enmod socache_shmcb
-        sed -i 's/ssl-cert-snakeoil.pem/${SSL_CERT}/g' /etc/apache2/sites-available/default-ssl.conf
-        sed -i 's/ssl-cert-snakeoil.key/${SSL_KEY}/g' /etc/apache2/sites-available/default-ssl.conf
-        a2ensite default-ssl
-        apache2-foreground
-    volumes:
-      - ./wordpress:/var/www/html
-      - ./config/php/php.ini:/usr/local/etc/php/php.ini
-      - ./config/ssl/${SSL_KEY}:/etc/ssl/private/${SSL_KEY}
-      - ./config/ssl/${SSL_CERT}:/etc/ssl/certs/${SSL_CERT}
-  
+
   db:
+    env_file: .env
     image: mysql
-    restart: always
+    restart: unless-stopped
+    container_name: mysql
     ports:
       - 3306:3306
-    container_name: mysql
     environment:
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: ${WP_DB_NAME}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_RANDOM_ROOT_PASSWORD: '1'
     volumes:
       - ./db/data:/var/lib/mysql
+
+  wordpress:
+    env_file: .env
+    image: wordpress:fpm
+    restart: unless-stopped
+    container_name: wordpress
+    depends_on:
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_DB_NAME: ${WP_DB_NAME}
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./config/php/php.ini:/usr/local/etc/php/php.ini
+
+  nginx:
+    env_file: .env
+    image: nginx
+    restart: unless-stopped
+    container_name: nginx
+    depends_on:
+      - wordpress
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - NGINX_HOST=${HOST}
+      - NGINX_SSL_CERT=${SSL_CERT}
+      - NGINX_SSL_CERT_KEY=${SSL_CERT_KEY}
+    volumes:
+      - ./config/ssl/${SSL_CERT_KEY}:/etc/ssl/${SSL_CERT_KEY}
+      - ./config/ssl/${SSL_CERT}:/etc/ssl/${SSL_CERT}
+      - ./config/nginx/templates:/etc/nginx/templates
+      - ./wordpress:/var/www/html
